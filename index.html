@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resolver Desigualdades</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      font-size: 16px;
+    }
+    .resultado {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h2>Resolver Desigualdades Lineales y Cuadráticas</h2>
+  <p>Escribe una desigualdad como <code>2*x+3 > 7</code> o <code>x^2 - 4 < 0</code></p>
+  <input type="text" id="desigualdad" placeholder="Ej: x^2 - 4 < 0" size="30">
+  <button onclick="resolverDesigualdad()">Resolver</button>
+
+  <div class="resultado" id="resultado"></div>
+
+  <script>
+    function resolverDesigualdad() {
+      const input = document.getElementById("desigualdad").value;
+      const resultado = document.getElementById("resultado");
+
+      try {
+        // Reemplaza x^2 por Math.pow(x, 2)
+        let expresion = input.replace(/\^/g, "**");
+
+        // Separar la desigualdad
+        const operador = expresion.includes("<=") ? "<=" :
+                         expresion.includes(">=") ? ">=" :
+                         expresion.includes("<") ? "<" :
+                         expresion.includes(">") ? ">" : null;
+
+        if (!operador) {
+          resultado.innerText = "Debe contener un operador de desigualdad (<, >, <=, >=)";
+          return;
+        }
+
+        const [lhs, rhs] = expresion.split(operador);
+
+        // Evaluar en varios valores para detectar el intervalo solución
+        let soluciones = [];
+        for (let x = -20; x <= 20; x += 0.5) {
+          const izquierda = eval(lhs.replace(/x/g, `(${x})`));
+          const derecha = eval(rhs.replace(/x/g, `(${x})`));
+
+          let cumple = false;
+          switch (operador) {
+            case "<":  cumple = izquierda < derecha; break;
+            case ">":  cumple = izquierda > derecha; break;
+            case "<=": cumple = izquierda <= derecha; break;
+            case ">=": cumple = izquierda >= derecha; break;
+          }
+
+          if (cumple) soluciones.push(x.toFixed(1));
+        }
+
+        if (soluciones.length === 0) {
+          resultado.innerText = "No hay solución en el intervalo [-20, 20]";
+        } else {
+          resultado.innerText = `Soluciones aproximadas: x ∈ [${soluciones[0]}, ${soluciones[soluciones.length - 1]}]`;
+        }
+
+      } catch (error) {
+        resultado.innerText = "Error al procesar la desigualdad. Asegúrate de usar una sintaxis como x^2 - 4 < 0";
+      }
+    }
+  </script>
+</body>
+</html>
