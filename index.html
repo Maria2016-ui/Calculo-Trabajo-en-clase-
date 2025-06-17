@@ -2,80 +2,178 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Resolver Desigualdades</title>
+  <title>Desigualdades Lineales y Cuadráticas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    input, button {
-      padding: 10px;
-      margin: 5px;
-      font-size: 16px;
-    }
-    .resultado {
-      margin-top: 20px;
-      font-weight: bold;
-    }
+    body { font-family: Arial; padding: 20px; }
+    input, button { padding: 10px; width: 100%; margin-top: 10px; font-size: 16px; }
+    .resultado { background: #f3f3f3; padding: 15px; margin-top: 20px; border-radius: 5px; }
+    canvas { margin-top: 20px; }
+    table { margin-top: 10px; border-collapse: collapse; }
+    td, th { border: 1px solid #888; padding: 5px 10px; }
   </style>
 </head>
 <body>
-  <h2>Resolver Desigualdades Lineales y Cuadráticas</h2>
-  <p>Escribe una desigualdad como <code>2*x+3 > 7</code> o <code>x^2 - 4 < 0</code></p>
-  <input type="text" id="desigualdad" placeholder="Ej: x^2 - 4 < 0" size="30">
-  <button onclick="resolverDesigualdad()">Resolver</button>
-
+  <h2>Desigualdades Lineales y Cuadráticas</h2>
+  <input id="input" placeholder="Ej: x^2 - 4 >= 0" />
+  <button onclick="resolver()">Resolver</button>
   <div class="resultado" id="resultado"></div>
+  <canvas id="grafico" width="500" height="300"></canvas>
 
   <script>
-    function resolverDesigualdad() {
-      const input = document.getElementById("desigualdad").value;
-      const resultado = document.getElementById("resultado");
+    let chart;
+
+    function resolver() {
+      const entrada = document.getElementById("input").value.replace(/\s+/g, '');
+      const salida = document.getElementById("resultado");
+      const desigualdad = entrada.match(/(<=|>=|<|>)/);
+      if (!desigualdad) return salida.innerHTML = "❌ Usa una desigualdad con <, >, <= o >=";
+
+      const operador = desigualdad[0];
+      const [izq, der] = entrada.split(operador);
+      const expr = `(${izq}) - (${der})`;
+      const esCuadratica = expr.includes("x^2");
+
+      let pasos = `<b>Desigualdad:</b> ${entrada}<br>`;
+      pasos += `<b>Forma estándar:</b> ${expr} ${operador} 0<br>`;
 
       try {
-        // Reemplaza x^2 por Math.pow(x, 2)
-        let expresion = input.replace(/\^/g, "**");
+        if (esCuadratica) {
+          const a = coef(expr, "x^2");
+          const b = coef(expr, "x");
+          const c = coef(expr, "");
 
-        // Separar la desigualdad
-        const operador = expresion.includes("<=") ? "<=" :
-                         expresion.includes(">=") ? ">=" :
-                         expresion.includes("<") ? "<" :
-                         expresion.includes(">") ? ">" : null;
+          const D = b*b - 4*a*c;
+          const x1 = (-b - Math.sqrt(D)) / (2 * a);
+          const x2 = (-b + Math.sqrt(D)) / (2 * a);
+          const menor = Math.min(x1, x2);
+          const mayor = Math.max(x1, x2);
 
-        if (!operador) {
-          resultado.innerText = "Debe contener un operador de desigualdad (<, >, <=, >=)";
-          return;
-        }
+          pasos += `<b>Tipo:</b> Cuadrática<br>`;
+          pasos += `a=${a}, b=${b}, c=${c}<br>Discriminante D=${D}<br>`;
+          pasos += D >= 0
+            ? `Raíces: x₁=${menor.toFixed(2)}, x₂=${mayor.toFixed(2)}<br>`
+            : `No hay raíces reales<br>`;
 
-        const [lhs, rhs] = expresion.split(operador);
+          const solucion = intervaloCuadratica(a, operador, menor, mayor);
+          pasos += `→ Solución: x ∈ ${solucion}<br>`;
 
-        // Evaluar en varios valores para detectar el intervalo solución
-        let soluciones = [];
-        for (let x = -20; x <= 20; x += 0.5) {
-          const izquierda = eval(lhs.replace(/x/g, `(${x})`));
-          const derecha = eval(rhs.replace(/x/g, `(${x})`));
+          // Tabla de signos
+          pasos += generarTablaSignos(a, menor, mayor, operador);
 
-          let cumple = false;
-          switch (operador) {
-            case "<":  cumple = izquierda < derecha; break;
-            case ">":  cumple = izquierda > derecha; break;
-            case "<=": cumple = izquierda <= derecha; break;
-            case ">=": cumple = izquierda >= derecha; break;
-          }
-
-          if (cumple) soluciones.push(x.toFixed(1));
-        }
-
-        if (soluciones.length === 0) {
-          resultado.innerText = "No hay solución en el intervalo [-20, 20]";
+          // Graficar parábola
+          graficarParabola(a, b, c);
         } else {
-          resultado.innerText = `Soluciones aproximadas: x ∈ [${soluciones[0]}, ${soluciones[soluciones.length - 1]}]`;
+          const a = coef(expr, "x");
+          const b = coef(expr, "");
+
+          pasos += `<b>Tipo:</b> Lineal<br>a=${a}, b=${b}<br>`;
+          const x = -b / a;
+          const signo = invertir(operador, a);
+          pasos += `x ${signo} ${x.toFixed(2)}<br>`;
+          pasos += `→ Solución: x ∈ { x ${signo} ${x.toFixed(2)} }`;
+
+          // Graficar línea recta
+          graficarLinea(a, b);
         }
 
-      } catch (error) {
-        resultado.innerText = "Error al procesar la desigualdad. Asegúrate de usar una sintaxis como x^2 - 4 < 0";
+        salida.innerHTML = pasos;
+      } catch {
+        salida.innerHTML = "❌ Error al interpretar la desigualdad.";
       }
+    }
+
+    function coef(expr, termino) {
+      const regex = termino === "" ? /([+-]?\d+)(?![x\d])/g :
+                    termino === "x^2" ? /([+-]?\d*)x\^2/g :
+                    /([+-]?\d*)x(?!\^)/g;
+      const matches = [...expr.matchAll(regex)];
+      if (matches.length === 0) return 0;
+      return matches.reduce((sum, m) => {
+        const val = m[1] === "" || m[1] === "+" ? 1 : m[1] === "-" ? -1 : parseFloat(m[1]);
+        return sum + val;
+      }, 0);
+    }
+
+    function invertir(op, a) {
+      return a < 0 ? { "<": ">", ">": "<", "<=": ">=", ">=": "<=" }[op] : op;
+    }
+
+    function intervaloCuadratica(a, operador, x1, x2) {
+      if (isNaN(x1) || isNaN(x2)) {
+        return signoTramoSinRaices(a, operador);
+      }
+      if (operador === "<") return a > 0 ? `(${x1.toFixed(2)}, ${x2.toFixed(2)})` : `(-∞, ${x1.toFixed(2)}) ∪ (${x2.toFixed(2)}, ∞)`;
+      if (operador === ">") return a > 0 ? `(-∞, ${x1.toFixed(2)}) ∪ (${x2.toFixed(2)}, ∞)` : `(${x1.toFixed(2)}, ${x2.toFixed(2)})`;
+      if (operador === "<=") return a > 0 ? `[${x1.toFixed(2)}, ${x2.toFixed(2)}]` : `(-∞, ${x1.toFixed(2)}] ∪ [${x2.toFixed(2)}, ∞)`;
+      if (operador === ">=") return a > 0 ? `(-∞, ${x1.toFixed(2)}] ∪ [${x2.toFixed(2)}, ∞)` : `[${x1.toFixed(2)}, ${x2.toFixed(2)}]`;
+    }
+
+    function signoTramoSinRaices(a, operador) {
+      if (a > 0 && (operador === ">" || operador === ">=")) return "ℝ";
+      if (a < 0 && (operador === "<" || operador === "<=")) return "ℝ";
+      return "∅ (ninguna)";
+    }
+
+    function generarTablaSignos(a, x1, x2, operador) {
+      if (isNaN(x1) || isNaN(x2)) return "";
+      const signos = a > 0
+        ? [["-∞", x1, "+"], [x1, x2, "-"], [x2, "∞", "+"]]
+        : [["-∞", x1, "-"], [x1, x2, "+"], [x2, "∞", "-"]];
+
+      let tabla = "<br><b>Tabla de signos:</b><br><table><tr><th>Intervalo</th><th>Signo</th><th>Cumple</th></tr>";
+      for (let fila of signos) {
+        const [a, b, signo] = fila;
+        const cumple = operador.includes(">") ? signo === "+" : signo === "-";
+        tabla += `<tr><td>${a} a ${b}</td><td>${signo}</td><td>${cumple ? "✔️" : "❌"}</td></tr>`;
+      }
+      tabla += "</table>";
+      return tabla;
+    }
+
+    function graficarParabola(a, b, c) {
+      const x = [], y = [];
+      for (let i = -10; i <= 10; i += 0.2) {
+        x.push(i.toFixed(2));
+        y.push(a * i * i + b * i + c);
+      }
+      dibujarGrafico(x, y, "Parábola");
+    }
+
+    function graficarLinea(a, b) {
+      const x = [], y = [];
+      for (let i = -10; i <= 10; i += 0.2) {
+        x.push(i.toFixed(2));
+        y.push(a * i + b);
+      }
+      dibujarGrafico(x, y, "Recta");
+    }
+
+    function dibujarGrafico(x, y, label) {
+      if (chart) chart.destroy();
+      const ctx = document.getElementById('grafico').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: x,
+          datasets: [{
+            label: label,
+            data: y,
+            borderColor: 'blue',
+            fill: false,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          responsive: false,
+          scales: {
+            x: { title: { display: true, text: 'x' } },
+            y: { title: { display: true, text: 'y' } }
+          }
+        }
+      });
     }
   </script>
 </body>
 </html>
+
